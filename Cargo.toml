@@ -1,0 +1,22 @@
+[package]
+name = "matrix-notify"
+version = "0.1.0"
+authors = ["VanillaBrooks <brooks@karlik.org>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+thiserror = "1.0.24"
+tokio = {version="1.6.0", features=["rt", "macros", "rt-multi-thread"]}
+dotenv = "0.15.0"
+url = "2.2.2"
+argh = "0.1.4"
+mime_guess = "2.0.3"
+serde_json = "1.0.64"
+serde = {version="1.0.126", features=["derive"]}
+
+
+[dependencies.matrix-sdk]
+rev = "bdd51a323a8c509ed5e7e56a4aa58c4331d7aabe"
+git = "https://github.com/matrix-org/matrix-rust-sdk"
