@@ -7,7 +7,7 @@ Send one-off messages to your matrix account when compute jobs finish
 `matrix-notify` can be installed through `cargo`:
 
 ```
-cargo install matrix-notify
+cargo install --git https://github.com/fluid-Dynamics-Group/matrix-notify
 ```
 
 ## Usage
