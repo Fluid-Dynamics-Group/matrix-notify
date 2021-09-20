@@ -8,14 +8,13 @@ edition = "2018"
 
 [dependencies]
 thiserror = "1.0.24"
-tokio = {version="0.2.21", features=["rt-threaded", "macros"]}
+tokio = { version="1.11.0", features=["rt", "macros"]}
 dotenv = "0.15.0"
 url = "2.2.2"
 argh = "0.1.4"
 mime_guess = "2.0.3"
 serde_json = "1.0.64"
 serde = {version="1.0.126", features=["derive"]}
-ruma-client= {version="0.4.0"}
-ruma-identifiers = "0.16.1"
-ruma-client-api = "0.9.0"
-ruma-events = "0.21.2"
+ruma = { version = "0.4.0", features = ["client-api", "client", "client-hyper-native-tls", "client-ext-client-api"] }
+hyper = "0.14.11"
+hyper-tls = "0.5.0"
