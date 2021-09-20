@@ -54,12 +54,12 @@ pub async fn send_attachment(client: &Client, attachment_path: &str, description
 
     let pathbuf = std::path::PathBuf::from(attachment_path);
 
-    let filename = pathbuf
-        .file_name()
-        .ok_or(Error::MissingFilename)?
-        .to_str()
-        .unwrap_or("file")
-        .to_string();
+    //let filename = pathbuf
+    //    .file_name()
+    //    .ok_or(Error::MissingFilename)?
+    //    .to_str()
+    //    .unwrap_or("file")
+    //    .to_string();
 
     let mut reader = std::fs::File::open(&pathbuf)?;
     let mut bytes = Vec::new();
@@ -74,9 +74,11 @@ pub async fn send_attachment(client: &Client, attachment_path: &str, description
     let description = description.unwrap_or("".to_string());
 
     // TODO: load info into the struct here using the above data
-    let info = None;
+    let mut info = Box::new(ruma::events::room::message::FileInfo::new());
+    info.mimetype = Some(mime);
+    info.size=Some((size as u32).into());
 
-    let file = ruma_events::room::message::FileMessageEventContent::plain(description, uri, info);
+    let file = ruma_events::room::message::FileMessageEventContent::plain(description, uri, Some(info));
     let msg_type = ruma_events::room::message::MessageType::File(file);
     let message_event = ruma_events::room::message::MessageEventContent::new(msg_type);
     let any_file_event = ruma_events::AnyMessageEventContent::RoomMessage(message_event);

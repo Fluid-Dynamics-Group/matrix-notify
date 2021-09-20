@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 thiserror = "1.0.24"
-tokio = {version="0.2.21", features=["rt-threaded", "macros"]}
+tokio = { version="1.11.0", features=["rt", "macros"]}
 dotenv = "0.15.0"
 url = "2.2.2"
 argh = "0.1.4"

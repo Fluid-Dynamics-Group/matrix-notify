@@ -43,7 +43,7 @@ struct Attachment {
 
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() {
     if let Err(e) = inner_main().await {
         eprintln!("Error: {}", e)
@@ -62,7 +62,7 @@ async fn inner_main() -> Result<(), Error> {
     let client = matrix_notify::client(config.homeserver_url);
 
     client
-        .register_user(Some(&config.matrix_username), &config.matrix_password)
+        .log_in(&config.matrix_username, &config.matrix_password, None, None)
         .await?;
 
     //leave_all_rooms(&client).await.unwrap();
