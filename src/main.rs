@@ -57,15 +57,9 @@ async fn inner_main() -> Result<(), Error> {
     let target_user = UserId::try_from(args.target_user.clone())
         .map_err(|_| Error::UsernameErr(args.target_user.clone()))?;
 
-    let config = ConfigInfo::new()?;
+    let config = matrix_notify::ConfigInfo::new()?;
 
-    let client = matrix_notify::client(config.homeserver_url);
-
-    client
-        .log_in(&config.matrix_username, &config.matrix_password, None, None)
-        .await?;
-
-    //leave_all_rooms(&client).await.unwrap();
+    let client = matrix_notify::client(&config).await?;
 
     match args.subcommands {
         Subcommands::Text(text) => {
@@ -77,20 +71,4 @@ async fn inner_main() -> Result<(), Error> {
     }
 
     Ok(())
-}
-
-#[derive(serde::Deserialize)]
-struct ConfigInfo {
-    matrix_username: String,
-    matrix_password: String,
-    homeserver_url: String,
-}
-
-impl ConfigInfo {
-    fn new() -> Result<Self, Error> {
-        let bytes = include_bytes!("../.config.json");
-        let text = String::from_utf8(bytes.to_vec()).expect("input json was not utf8");
-        let x = serde_json::from_str(&text)?;
-        Ok(x)
-    }
 }

@@ -29,11 +29,17 @@ pub async fn send_text_message(client: &Client, text: String, target_user: UserI
     Ok(())
 }
 
-pub fn client(homeserver_url: String) -> Client {
+pub async fn client(config: &ConfigInfo) -> Result<Client, Error> {
     let https = hyper_tls::HttpsConnector::new();
     let client = hyper::Client::builder().build::<_, hyper::Body>(https);
 
-    Client::with_http_client(client, homeserver_url, None)
+    let client = Client::with_http_client(client, config.homeserver_url.clone(), None);
+
+    client
+        .log_in(&config.matrix_username, &config.matrix_password, None, None)
+        .await?;
+
+    Ok(client)
 }
 
 fn text_event(text: String) -> ruma_events::AnyMessageEventContent {
@@ -199,4 +205,20 @@ pub enum Error {
     RumaIdentifier(#[from] ruma::identifiers::Error),
     #[error("There was a hyper error: `{0}`")]
     HyperError(#[from] ruma::client::Error<hyper::Error, ruma::api::client::r0::uiaa::UiaaResponse>)
+}
+
+#[derive(serde::Deserialize)]
+pub struct ConfigInfo {
+    pub matrix_username: String,
+    pub matrix_password: String,
+    pub homeserver_url: String,
+}
+
+impl ConfigInfo {
+    pub fn new() -> Result<Self, Error> {
+        let bytes = include_bytes!("../.config.json");
+        let text = String::from_utf8(bytes.to_vec()).expect("input json was not utf8");
+        let x = serde_json::from_str(&text)?;
+        Ok(x)
+    }
 }
