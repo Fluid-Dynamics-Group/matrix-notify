@@ -60,12 +60,12 @@ pub async fn send_attachment(client: &Client, attachment_path: &str, description
 
     let pathbuf = std::path::PathBuf::from(attachment_path);
 
-    //let filename = pathbuf
-    //    .file_name()
-    //    .ok_or(Error::MissingFilename)?
-    //    .to_str()
-    //    .unwrap_or("file")
-    //    .to_string();
+    let filename = pathbuf
+        .file_name()
+        .ok_or(Error::MissingFilename)?
+        .to_str()
+        .unwrap_or("file")
+        .to_string();
 
     let mut reader = std::fs::File::open(&pathbuf)?;
     let mut bytes = Vec::new();
@@ -80,12 +80,18 @@ pub async fn send_attachment(client: &Client, attachment_path: &str, description
     let description = description.unwrap_or("".to_string());
 
     // TODO: load info into the struct here using the above data
-    let mut info = Box::new(ruma::events::room::message::FileInfo::new());
-    info.mimetype = Some(mime);
-    info.size=Some((size as u32).into());
 
-    let file = ruma_events::room::message::FileMessageEventContent::plain(description, uri, Some(info));
-    let msg_type = ruma_events::room::message::MessageType::File(file);
+    let msg_type = if mime.starts_with("video") {
+        println!("sending as video");
+        send_as_video(description, uri, filename, mime, size)
+    } else if mime.starts_with("image") {
+        println!("sending as image");
+        send_as_image(description, uri, filename, mime, size)
+    } else {
+        println!("sending as file");
+        send_as_file(description, uri, filename, mime, size)
+    };
+
     let message_event = ruma_events::room::message::MessageEventContent::new(msg_type);
     let any_file_event = ruma_events::AnyMessageEventContent::RoomMessage(message_event);
 
@@ -96,6 +102,62 @@ pub async fn send_attachment(client: &Client, attachment_path: &str, description
     client.send_request(file_request).await?;
 
     Ok(())
+}
+
+fn send_as_file(description: String, uri: ruma::MxcUri, filename: String, mime: String, size: usize) -> ruma::events::room::message::MessageType {
+    let mut info = Box::new(ruma::events::room::message::FileInfo::new());
+    info.mimetype = Some(mime);
+    info.size=Some((size as u32).into());
+
+    let mut file = ruma_events::room::message::FileMessageEventContent::plain(description, uri, Some(info));
+    file.filename = Some(filename.clone());
+    file.body = filename;
+
+    let msg_type = ruma_events::room::message::MessageType::File(file);
+
+    msg_type
+}
+
+// TODO: make this not render like that
+fn send_as_video(description: String, uri: ruma::MxcUri, filename: String, mime: String, size: usize) -> ruma::events::room::message::MessageType {
+    let height = 868_u32.into();
+    let width = 800_u32.into();
+    let size = (size as u32).into();
+
+    let mut info = Box::new(ruma::events::room::message::VideoInfo::new());
+    info.mimetype = Some(mime);
+    info.size=Some(size);
+    info.height = Some(height);
+    info.width = Some(width);
+
+    let mut file = ruma_events::room::message::VideoMessageEventContent::plain(description, uri, Some(info));
+    file.body = filename;
+
+    let msg_type = ruma_events::room::message::MessageType::Video(file);
+
+    msg_type
+}
+
+fn send_as_image(description: String, uri: ruma::MxcUri, filename: String, mime: String, size: usize) -> ruma::events::room::message::MessageType {
+    let height = 868_u32.into();
+    let width = 800_u32.into();
+    let size = (size as u32).into();
+
+    let mut info = Box::new(ruma::events::room::ImageInfo::new());
+    info.mimetype = Some(mime);
+    info.size=Some(size);
+
+    // TODO: pull some actual width and height information
+    info.height = Some(height);
+    info.width = Some(width);
+    info.thumbnail_url = Some(uri.clone());
+
+    let mut file = ruma_events::room::message::ImageMessageEventContent::plain(description, uri, Some(info));
+    file.body = filename;
+
+    let msg_type = ruma_events::room::message::MessageType::Image(file);
+
+    msg_type
 }
 
 async fn get_room_id(client: &Client, target_user: UserId, self_id: UserId) -> Result<RoomId, Error> {
@@ -123,10 +185,11 @@ async fn find_room(
 
         let membership_response = client.send_request(membership_request).await?;
 
-        let mut target_not_leave = true;
+        let mut target_not_leave = false;
 
         for chunk in membership_response.chunk {
             let chunk = chunk.deserialize()?;
+
             if chunk.sender == self_user_id {
                 continue;
             } else if chunk.sender == target_user {
@@ -139,7 +202,9 @@ async fn find_room(
                         target_not_leave = false;
                         break;
                     }
-                    _ => (),
+                    _ => {
+                        target_not_leave = true
+                    }
                 }
             } else {
                 break;
