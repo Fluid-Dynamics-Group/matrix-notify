@@ -40,7 +40,6 @@ struct Attachment {
     #[argh(positional)]
     /// content of the message to send
     path: String,
-
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -66,7 +65,14 @@ async fn inner_main() -> Result<(), Error> {
             matrix_notify::send_text_message(&client, text.text, target_user, self_user_id).await?;
         }
         Subcommands::Attachment(attachment) => {
-            matrix_notify::send_attachment(&client, &attachment.path, None, target_user, self_user_id).await?;
+            matrix_notify::send_attachment(
+                &client,
+                &attachment.path,
+                None,
+                target_user,
+                self_user_id,
+            )
+            .await?;
         }
     }
 
