@@ -7,14 +7,43 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.24"
-tokio = { version="1.11.0", features=["rt", "macros"]}
-dotenv = "0.15.0"
-url = "2.2.2"
-argh = "0.1.4"
-mime_guess = "2.0.3"
-serde_json = "1.0.64"
-serde = {version="1.0.126", features=["derive"]}
-ruma = { version = "0.4.0", features = ["client-api", "client", "client-hyper-native-tls", "client-ext-client-api"] }
-hyper = "0.14.11"
-hyper-tls = "0.5.0"
+thiserror = { version = "1.0.24", optional = true }
+tokio = { version="1.11.0", features=["rt", "macros"], optional = true}
+dotenv = { version = "0.15.0", optional = true }
+url = { version = "2.2.2", optional = true }
+argh = { version = "0.1.4", optional = true }
+mime_guess = { version = "2.0.3", optional = true }
+serde_json = { version = "1.0.64", optional = true }
+serde = {version="1.0.126", features=["derive"], optional=true}
+hyper = { version = "0.14.11", optional = true }
+hyper-tls = { version = "0.5.0", optional = true }
+
+ruma = { version = "0.4.0", optional = true }
+
+ruma-identifiers = {version = "0.20.0", optional = true }
+
+
+[features]
+default = ["cli"]
+cli = [
+	"tokio",
+	"dotenv",
+	"url",
+	"argh",
+	"mime_guess",
+	"serde_json",
+	"serde",
+	"ruma/client-api",
+	"ruma/client",
+	"ruma/client-hyper-native-tls",
+	"ruma/client-ext-client-api",
+	"hyper",
+	"hyper-tls",
+	"thiserror"
+]
+userid = ["ruma-identifiers"]
+
+
+[[bin]]
+name = "matrix-notify"
+required-features = ["cli"]

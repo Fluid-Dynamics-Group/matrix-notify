@@ -1,20 +1,27 @@
-use ruma::api::client::r0::media::create_content;
-use ruma::api::client::r0::membership::{get_member_events, joined_rooms};
-use ruma::api::client::r0::message::send_message_event;
-use ruma::api::client::r0::room::create_room;
-use ruma::events::room::member::MembershipState;
-use ruma::identifiers::{RoomId};
+#[cfg(feature = "cli")]
+use {
+    ruma::api::client::r0::media::create_content,
+    ruma::api::client::r0::membership::{get_member_events, joined_rooms},
+    ruma::api::client::r0::message::send_message_event,
+    ruma::api::client::r0::room::create_room,
+    ruma::events::room::member::MembershipState,
+    ruma::identifiers::{RoomId},
+    ruma::events as ruma_events,
+};
 use std::convert::TryFrom;
 use std::io::Read;
 
-pub use ruma::identifiers::UserId;
+#[cfg(feature="userid")]
+pub use ruma_identifiers::UserId;
 
-use ruma::events as ruma_events;
-
+#[cfg(feature = "cli")]
 pub type HyperClient = ruma::client::http_client::HyperNativeTls;
+#[cfg(feature = "cli")]
 pub type Client = ruma::client::Client<HyperClient>;
+#[cfg(feature = "cli")]
 type RumaClientError = ruma::client::Error<hyper::Error, ruma::api::client::Error>;
 
+#[cfg(feature = "cli")]
 pub async fn send_text_message(client: &Client, text: String, target_user: UserId, self_id: UserId) -> Result<(), Error> {
     let room_id = get_room_id(client, target_user, self_id).await?;
 
@@ -29,6 +36,7 @@ pub async fn send_text_message(client: &Client, text: String, target_user: UserI
     Ok(())
 }
 
+#[cfg(feature = "cli")]
 pub async fn client(config: &ConfigInfo) -> Result<Client, Error> {
     let https = hyper_tls::HttpsConnector::new();
     let client = hyper::Client::builder().build::<_, hyper::Body>(https);
@@ -42,6 +50,7 @@ pub async fn client(config: &ConfigInfo) -> Result<Client, Error> {
     Ok(client)
 }
 
+#[cfg(feature = "cli")]
 fn text_event(text: String) -> ruma_events::AnyMessageEventContent {
     let text = ruma_events::room::message::TextMessageEventContent::plain(text);
     let msg_type = ruma_events::room::message::MessageType::Text(text);
@@ -50,6 +59,7 @@ fn text_event(text: String) -> ruma_events::AnyMessageEventContent {
 }
 
 
+#[cfg(feature = "cli")]
 pub async fn send_attachment(client: &Client, attachment_path: &str, description: Option<String>, target_user: UserId, self_id: UserId) -> Result<(), Error> {
     let room_id = get_room_id(client, target_user, self_id).await?;
 
@@ -104,6 +114,7 @@ pub async fn send_attachment(client: &Client, attachment_path: &str, description
     Ok(())
 }
 
+#[cfg(feature = "cli")]
 fn send_as_file(description: String, uri: ruma::MxcUri, filename: String, mime: String, size: usize) -> ruma::events::room::message::MessageType {
     let mut info = Box::new(ruma::events::room::message::FileInfo::new());
     info.mimetype = Some(mime);
@@ -119,6 +130,7 @@ fn send_as_file(description: String, uri: ruma::MxcUri, filename: String, mime: 
 }
 
 // TODO: make this not render like that
+#[cfg(feature = "cli")]
 fn send_as_video(description: String, uri: ruma::MxcUri, filename: String, mime: String, size: usize) -> ruma::events::room::message::MessageType {
     let height = 868_u32.into();
     let width = 800_u32.into();
@@ -138,6 +150,7 @@ fn send_as_video(description: String, uri: ruma::MxcUri, filename: String, mime:
     msg_type
 }
 
+#[cfg(feature = "cli")]
 fn send_as_image(description: String, uri: ruma::MxcUri, filename: String, mime: String, size: usize) -> ruma::events::room::message::MessageType {
     let height = 868_u32.into();
     let width = 800_u32.into();
@@ -160,6 +173,7 @@ fn send_as_image(description: String, uri: ruma::MxcUri, filename: String, mime:
     msg_type
 }
 
+#[cfg(feature = "cli")]
 async fn get_room_id(client: &Client, target_user: UserId, self_id: UserId) -> Result<RoomId, Error> {
     let room_id = if let Some(id) = find_room(client, target_user.clone(), self_id).await? {
         id
@@ -170,6 +184,7 @@ async fn get_room_id(client: &Client, target_user: UserId, self_id: UserId) -> R
     Ok(room_id)
 }
 
+#[cfg(feature = "cli")]
 async fn find_room(
     client: &Client,
     target_user: UserId,
@@ -220,10 +235,12 @@ async fn find_room(
     Ok(user_room)
 }
 
+#[cfg(feature = "cli")]
 fn make_name<'a>(x: &'a str) ->  Result<&'a ruma::identifiers::RoomName, ruma::identifiers::Error>{
     TryFrom::try_from(x)
 }
 
+#[cfg(feature = "cli")]
 async fn create_room(client: &Client, target_user: UserId) -> Result<RoomId, Error> {
     let name  = "compute-notify";
     let room_name = make_name(name).unwrap();
@@ -252,6 +269,7 @@ async fn create_room(client: &Client, target_user: UserId) -> Result<RoomId, Err
     Ok(response.room_id)
 }
 
+#[cfg(feature = "cli")]
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("Failed to parse a url from the provided homeserver url in the .config.json")]
@@ -272,6 +290,7 @@ pub enum Error {
     HyperError(#[from] ruma::client::Error<hyper::Error, ruma::api::client::r0::uiaa::UiaaResponse>)
 }
 
+#[cfg(feature = "cli")]
 #[derive(serde::Deserialize)]
 pub struct ConfigInfo {
     pub matrix_username: String,
@@ -279,6 +298,7 @@ pub struct ConfigInfo {
     pub homeserver_url: String,
 }
 
+#[cfg(feature = "cli")]
 impl ConfigInfo {
     pub fn new() -> Result<Self, Error> {
         let bytes = include_bytes!("../.config.json");
