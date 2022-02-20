@@ -13,6 +13,8 @@ use {
 
 #[cfg(feature = "userid")]
 pub use ruma_identifiers::UserId;
+#[cfg(feature = "cli")]
+pub use ruma::identifiers::UserId;
 
 #[cfg(feature = "cli")]
 pub type HyperClient = ruma::client::http_client::HyperNativeTls;
