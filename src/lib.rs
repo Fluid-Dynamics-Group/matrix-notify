@@ -13,7 +13,7 @@ use {
 
 #[cfg(feature = "userid")]
 pub use ruma_identifiers::UserId;
-#[cfg(feature = "cli")]
+#[cfg(all(feature = "cli", not(feature="userid")))]
 pub use ruma::identifiers::UserId;
 
 #[cfg(feature = "cli")]
