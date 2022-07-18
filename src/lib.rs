@@ -11,10 +11,10 @@ use {
     ruma::identifiers::RoomId,
 };
 
+#[cfg(all(feature = "cli", not(feature = "userid")))]
+pub use ruma::identifiers::UserId;
 #[cfg(feature = "userid")]
 pub use ruma_identifiers::UserId;
-#[cfg(all(feature = "cli", not(feature="userid")))]
-pub use ruma::identifiers::UserId;
 
 #[cfg(feature = "cli")]
 pub type HyperClient = ruma::client::http_client::HyperNativeTls;
