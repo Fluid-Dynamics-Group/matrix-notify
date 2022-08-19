@@ -14,11 +14,13 @@ use {
     ruma::events::room::message::RoomMessageEventContent,
     ruma::TransactionId,
     ruma::OwnedRoomId,
-    ruma::OwnedUserId,
 };
 
 #[cfg(all(feature = "cli", not(feature = "userid")))]
 pub use ruma::UserId;
+#[cfg(all(feature = "cli", not(feature = "userid")))]
+pub use ruma::OwnedUserId;
+
 #[cfg(feature = "userid")]
 pub use ruma_common::UserId;
 #[cfg(feature = "userid")]
