@@ -2,19 +2,29 @@ use std::convert::TryFrom;
 use std::io::Read;
 #[cfg(feature = "cli")]
 use {
-    ruma::api::client::r0::media::create_content,
-    ruma::api::client::r0::membership::{get_member_events, joined_rooms},
-    ruma::api::client::r0::message::send_message_event,
-    ruma::api::client::r0::room::create_room,
+    ruma::api::client::media::create_content,
+    ruma::api::client::membership::{get_member_events, joined_rooms},
+    ruma::api::client::message::send_message_event,
+    ruma::api::client::room::create_room,
     ruma::events as ruma_events,
     ruma::events::room::member::MembershipState,
-    ruma::identifiers::RoomId,
+    ruma::events::room::MediaSource,
+    ruma::events::room::message::TextMessageEventContent,
+    ruma::events::room::message::MessageType,
+    ruma::events::room::message::RoomMessageEventContent,
+    ruma::events::room::message::OriginalRoomMessageEvent,
+    ruma::RoomId,
+    ruma::TransactionId,
+    ruma::OwnedRoomId,
 };
 
+#[cfg(all(feature = "cli", not(feature = "userid")))]
+pub use ruma::UserId;
 #[cfg(feature = "userid")]
-pub use ruma_identifiers::UserId;
-#[cfg(all(feature = "cli", not(feature="userid")))]
-pub use ruma::identifiers::UserId;
+pub use ruma_common::UserId;
+#[cfg(feature = "userid")]
+pub use ruma_common::OwnedUserId;
+
 
 #[cfg(feature = "cli")]
 pub type HyperClient = ruma::client::http_client::HyperNativeTls;
@@ -27,16 +37,16 @@ type RumaClientError = ruma::client::Error<hyper::Error, ruma::api::client::Erro
 pub async fn send_text_message(
     client: &Client,
     text: String,
-    target_user: UserId,
-    self_id: UserId,
+    target_user: &UserId,
+    self_id: &UserId,
 ) -> Result<(), Error> {
     let room_id = get_room_id(client, target_user, self_id).await?;
 
-    let txn_id = String::new();
+    let txn_id = TransactionId::new();
 
     let data = text_event(text);
 
-    let text_request = send_message_event::Request::new(&room_id, &txn_id, &data);
+    let text_request = send_message_event::v3::Request::new(&room_id, &txn_id, &data)?;
 
     client.send_request(text_request).await?;
 
@@ -48,8 +58,10 @@ pub async fn client(config: &ConfigInfo) -> Result<Client, Error> {
     let https = hyper_tls::HttpsConnector::new();
     let client = hyper::Client::builder().build::<_, hyper::Body>(https);
 
-    let client = Client::with_http_client(client, config.homeserver_url.clone(), None);
-
+    let client = ruma::Client::<()>::builder()
+        .homeserver_url(config.homeserver_url.clone())
+        .http_client(client).await?;
+        
     client
         .log_in(&config.matrix_username, &config.matrix_password, None, None)
         .await?;
@@ -58,11 +70,10 @@ pub async fn client(config: &ConfigInfo) -> Result<Client, Error> {
 }
 
 #[cfg(feature = "cli")]
-fn text_event(text: String) -> ruma_events::AnyMessageEventContent {
-    let text = ruma_events::room::message::TextMessageEventContent::plain(text);
-    let msg_type = ruma_events::room::message::MessageType::Text(text);
-    let message_event = ruma_events::room::message::MessageEventContent::new(msg_type);
-    ruma_events::AnyMessageEventContent::RoomMessage(message_event)
+fn text_event(text: String) -> RoomMessageEventContent{
+    let text = TextMessageEventContent::plain(text);
+    let msg_type = MessageType::Text(text);
+    RoomMessageEventContent::new(msg_type)
 }
 
 #[cfg(feature = "cli")]
@@ -70,8 +81,8 @@ pub async fn send_attachment(
     client: &Client,
     attachment_path: &str,
     description: Option<String>,
-    target_user: UserId,
-    self_id: UserId,
+    target_user: &UserId,
+    self_id: &UserId,
 ) -> Result<(), Error> {
     let room_id = get_room_id(client, target_user, self_id).await?;
 
@@ -95,31 +106,28 @@ pub async fn send_attachment(
 
     let size = bytes.len();
 
-    let upload_request = create_content::Request::new(&bytes);
+    let mut upload_request = create_content::v3::Request::new(&bytes);
+    upload_request.content_type = Some(mime.as_str());
 
     let uri = client.send_request(upload_request).await?.content_uri;
-
     let description = description.unwrap_or("".to_string());
 
-    // TODO: load info into the struct here using the above data
-
-    let msg_type = if mime.starts_with("video") {
+    let msg_type : MessageType = if mime.starts_with("video") {
         println!("sending as video");
-        send_as_video(description, uri, filename, mime, size)
+        send_as_video(description, &uri, filename, mime, size)
     } else if mime.starts_with("image") {
         println!("sending as image");
-        send_as_image(description, uri, filename, mime, size)
+        send_as_image(description, &uri, filename, mime, size)
     } else {
         println!("sending as file");
-        send_as_file(description, uri, filename, mime, size)
+        send_as_file(description, &uri, filename, mime, size)
     };
 
-    let message_event = ruma_events::room::message::MessageEventContent::new(msg_type);
-    let any_file_event = ruma_events::AnyMessageEventContent::RoomMessage(message_event);
+    let msg_event = RoomMessageEventContent::new(msg_type);
 
-    let txn_id = String::new();
+    let txn_id = TransactionId::new();
 
-    let file_request = send_message_event::Request::new(&room_id, &txn_id, &any_file_event);
+    let file_request = send_message_event::v3::Request::new(&room_id, &txn_id, &msg_event)?;
 
     client.send_request(file_request).await?;
 
@@ -129,7 +137,7 @@ pub async fn send_attachment(
 #[cfg(feature = "cli")]
 fn send_as_file(
     description: String,
-    uri: ruma::MxcUri,
+    uri: &ruma::MxcUri,
     filename: String,
     mime: String,
     size: usize,
@@ -139,7 +147,7 @@ fn send_as_file(
     info.size = Some((size as u32).into());
 
     let mut file =
-        ruma_events::room::message::FileMessageEventContent::plain(description, uri, Some(info));
+        ruma_events::room::message::FileMessageEventContent::plain(description, uri.to_owned(), Some(info));
     file.filename = Some(filename.clone());
     file.body = filename;
 
@@ -152,7 +160,7 @@ fn send_as_file(
 #[cfg(feature = "cli")]
 fn send_as_video(
     description: String,
-    uri: ruma::MxcUri,
+    uri: &ruma::MxcUri,
     filename: String,
     mime: String,
     size: usize,
@@ -168,7 +176,7 @@ fn send_as_video(
     info.width = Some(width);
 
     let mut file =
-        ruma_events::room::message::VideoMessageEventContent::plain(description, uri, Some(info));
+        ruma_events::room::message::VideoMessageEventContent::plain(description, uri.to_owned(), Some(info));
     file.body = filename;
 
     let msg_type = ruma_events::room::message::MessageType::Video(file);
@@ -179,7 +187,7 @@ fn send_as_video(
 #[cfg(feature = "cli")]
 fn send_as_image(
     description: String,
-    uri: ruma::MxcUri,
+    uri: &ruma::MxcUri,
     filename: String,
     mime: String,
     size: usize,
@@ -195,10 +203,10 @@ fn send_as_image(
     // TODO: pull some actual width and height information
     info.height = Some(height);
     info.width = Some(width);
-    info.thumbnail_url = Some(uri.clone());
+    info.thumbnail_source = Some(MediaSource::Plain(uri.to_owned()));
 
     let mut file =
-        ruma_events::room::message::ImageMessageEventContent::plain(description, uri, Some(info));
+        ruma_events::room::message::ImageMessageEventContent::plain(description, uri.to_owned(), Some(info));
     file.body = filename;
 
     let msg_type = ruma_events::room::message::MessageType::Image(file);
@@ -209,9 +217,9 @@ fn send_as_image(
 #[cfg(feature = "cli")]
 async fn get_room_id(
     client: &Client,
-    target_user: UserId,
-    self_id: UserId,
-) -> Result<RoomId, Error> {
+    target_user: &UserId,
+    self_id: &UserId,
+) -> Result<OwnedRoomId, Error> {
     let room_id = if let Some(id) = find_room(client, target_user.clone(), self_id).await? {
         id
     } else {
@@ -224,16 +232,18 @@ async fn get_room_id(
 #[cfg(feature = "cli")]
 async fn find_room(
     client: &Client,
-    target_user: UserId,
-    self_user_id: UserId,
-) -> Result<Option<RoomId>, Error> {
+    target_user: &UserId,
+    self_user_id: &UserId,
+) -> Result<Option<OwnedRoomId>, Error> {
     let mut user_room = None;
 
-    let rooms = joined_rooms::Request::new();
-    let rooms_response: joined_rooms::Response = client.send_request(rooms).await?;
+    let rooms = joined_rooms::v3::Request::new();
+    let rooms_response: joined_rooms::v3::Response = client.send_request(rooms).await?;
 
-    for joined_room in rooms_response.joined_rooms.into_iter() {
-        let membership_request = get_member_events::Request::new(&joined_room);
+    for joined_room_id in rooms_response.joined_rooms.into_iter() {
+        let _: OwnedRoomId = joined_room_id.clone();
+
+        let membership_request = get_member_events::v3::Request::new(&joined_room_id);
 
         let membership_response = client.send_request(membership_request).await?;
 
@@ -242,10 +252,10 @@ async fn find_room(
         for chunk in membership_response.chunk {
             let chunk = chunk.deserialize()?;
 
-            if chunk.sender == self_user_id {
+            if chunk.sender() == self_user_id {
                 continue;
-            } else if chunk.sender == target_user {
-                match chunk.content.membership {
+            } else if chunk.sender() == target_user {
+                match chunk.membership() {
                     MembershipState::Ban => {
                         target_not_leave = false;
                         break;
@@ -262,7 +272,7 @@ async fn find_room(
         }
 
         if target_not_leave {
-            user_room = Some(joined_room);
+            user_room = Some(joined_room_id.to_owned());
             break;
         }
     }
@@ -271,33 +281,34 @@ async fn find_room(
 }
 
 #[cfg(feature = "cli")]
-fn make_name<'a>(x: &'a str) -> Result<&'a ruma::identifiers::RoomName, ruma::identifiers::Error> {
+fn make_name<'a>(x: &'a str) -> Result<&'a ruma::RoomName, ruma::IdParseError> {
     TryFrom::try_from(x)
 }
 
 #[cfg(feature = "cli")]
-async fn create_room(client: &Client, target_user: UserId) -> Result<RoomId, Error> {
+async fn create_room(client: &Client, target_user: &UserId) -> Result<OwnedRoomId, Error> {
     let name = "compute-notify";
     let room_name = make_name(name).unwrap();
 
-    let creation_content = ruma::api::client::r0::room::create_room::CreationContent::new();
+    let creation_content = create_room::v3::CreationContent::new();
 
     //we must now create a room and send messages to it
-    let mut create_room_request = create_room::Request::new();
-    let target = &[target_user];
+    let mut create_room_request = create_room::v3::Request::new();
+    let target = [target_user.to_owned()];
 
-    create_room_request.creation_content = creation_content;
+    //create_room_request.creation_content = creation_content;
+    create_room_request.creation_content = None;
     create_room_request.initial_state = &[];
-    create_room_request.invite = target;
+    create_room_request.invite = &target;
     create_room_request.invite_3pid = &[];
     create_room_request.is_direct = true;
     create_room_request.name = Some(&room_name);
     create_room_request.power_level_content_override = None;
-    create_room_request.preset = Some(create_room::RoomPreset::PrivateChat);
+    create_room_request.preset = Some(create_room::v3::RoomPreset::PrivateChat);
     create_room_request.room_alias_name = None;
     create_room_request.room_version = None;
     create_room_request.topic = None;
-    create_room_request.visibility = ruma::api::client::r0::room::Visibility::Private;
+    create_room_request.visibility = ruma::api::client::room::Visibility::Private;
 
     let response = client.send_request(create_room_request).await?;
 
@@ -319,11 +330,11 @@ pub enum Error {
     SerdeError(#[from] serde_json::error::Error),
     #[error("Error with the client: `{0}`")]
     RumaClient(#[from] RumaClientError),
-    #[error("Could not resolve identifier: `{0}`")]
-    RumaIdentifier(#[from] ruma::identifiers::Error),
+    #[error("Could not parse the identifier: `{0}`")]
+    IdParse(#[from] ruma::IdParseError),
     #[error("There was a hyper error: `{0}`")]
     HyperError(
-        #[from] ruma::client::Error<hyper::Error, ruma::api::client::r0::uiaa::UiaaResponse>,
+        #[from] ruma::client::Error<hyper::Error, ruma::api::client::uiaa::UiaaResponse>,
     ),
 }
 

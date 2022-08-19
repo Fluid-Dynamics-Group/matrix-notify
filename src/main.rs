@@ -1,6 +1,7 @@
 use matrix_notify::Error;
 
-use ruma::identifiers::UserId;
+use ruma::UserId;
+use ruma::OwnedUserId;
 use std::convert::TryFrom;
 
 #[derive(argh::FromArgs)]
@@ -51,9 +52,9 @@ async fn main() {
 
 async fn inner_main() -> Result<(), Error> {
     let args: Args = argh::from_env();
-    let self_user_id = UserId::try_from("@compute-notify:matrix.org")?;
+    let self_user_id = OwnedUserId::try_from("@compute-notify:matrix.org")?;
 
-    let target_user = UserId::try_from(args.target_user.clone())
+    let target_user = OwnedUserId::try_from(args.target_user.clone())
         .map_err(|_| Error::UsernameErr(args.target_user.clone()))?;
 
     let config = matrix_notify::ConfigInfo::new()?;
@@ -62,15 +63,15 @@ async fn inner_main() -> Result<(), Error> {
 
     match args.subcommands {
         Subcommands::Text(text) => {
-            matrix_notify::send_text_message(&client, text.text, target_user, self_user_id).await?;
+            matrix_notify::send_text_message(&client, text.text, &target_user, &self_user_id).await?;
         }
         Subcommands::Attachment(attachment) => {
             matrix_notify::send_attachment(
                 &client,
                 &attachment.path,
                 None,
-                target_user,
-                self_user_id,
+                &target_user,
+                &self_user_id,
             )
             .await?;
         }
