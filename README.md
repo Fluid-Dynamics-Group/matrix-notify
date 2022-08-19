@@ -7,7 +7,22 @@ Send one-off messages to your matrix account when compute jobs finish
 `matrix-notify` can be installed through `cargo`:
 
 ```
-cargo install --git https://github.com/fluid-Dynamics-Group/matrix-notify
+git clone https://github.com/fluid-Dynamics-Group/matrix-notify
+cd matrix-notify
+```
+
+You must create a `.config.json` file that specifies credentials to use matrix. It is *highly* recommended
+that this is a shell user and *only* used for these one-off messages. 
+**Do not use your usual matrix account credentials**.
+The schema looks like this:
+
+```json
+{
+    "matrix_username": "your-matrix-username",
+    "matrix_password": "your-matrix-password",
+    "homeserver_url": "https://matrix.org"
+    "matrix_id": "@your-matrix-username:matrix.org"
+}
 ```
 
 ## Usage
