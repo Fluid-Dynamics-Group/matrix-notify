@@ -12,10 +12,9 @@ use {
     ruma::events::room::message::TextMessageEventContent,
     ruma::events::room::message::MessageType,
     ruma::events::room::message::RoomMessageEventContent,
-    ruma::events::room::message::OriginalRoomMessageEvent,
-    ruma::RoomId,
     ruma::TransactionId,
     ruma::OwnedRoomId,
+    ruma::OwnedUserId,
 };
 
 #[cfg(all(feature = "cli", not(feature = "userid")))]
@@ -290,13 +289,10 @@ async fn create_room(client: &Client, target_user: &UserId) -> Result<OwnedRoomI
     let name = "compute-notify";
     let room_name = make_name(name).unwrap();
 
-    let creation_content = create_room::v3::CreationContent::new();
-
     //we must now create a room and send messages to it
     let mut create_room_request = create_room::v3::Request::new();
     let target = [target_user.to_owned()];
 
-    //create_room_request.creation_content = creation_content;
     create_room_request.creation_content = None;
     create_room_request.initial_state = &[];
     create_room_request.invite = &target;
@@ -344,7 +340,7 @@ pub struct ConfigInfo {
     pub matrix_username: String,
     pub matrix_password: String,
     pub homeserver_url: String,
-    pub matrix_id: UserId,
+    pub matrix_id: OwnedUserId,
 }
 
 #[cfg(feature = "cli")]
