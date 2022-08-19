@@ -333,10 +333,12 @@ pub struct ConfigInfo {
     pub matrix_username: String,
     pub matrix_password: String,
     pub homeserver_url: String,
+    pub matrix_id: UserId,
 }
 
 #[cfg(feature = "cli")]
 impl ConfigInfo {
+    #[cfg(feature="static-api")]
     pub fn new() -> Result<Self, Error> {
         let bytes = include_bytes!("../.config.json");
         let text = String::from_utf8(bytes.to_vec()).expect("input json was not utf8");
