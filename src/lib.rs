@@ -350,6 +350,7 @@ impl ConfigInfo {
     }
 }
 
+#[cfg(feature = "cli")]
 #[tokio::test]
 /// This test ensures that we can create a client from within a tokio spawned future,
 /// which ensures that all inner futures implement the Send trait. This is included
