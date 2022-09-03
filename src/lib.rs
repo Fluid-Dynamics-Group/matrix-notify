@@ -33,13 +33,6 @@ pub type Client = ruma::client::Client<HyperClient>;
 #[cfg(feature = "cli")]
 type RumaClientError = ruma::client::Error<hyper::Error, ruma::api::client::Error>;
 
-#[allow(dead_code)]
-fn check_send<T: Send>() {}
-
-fn _check_send() {
-    check_send::<Client>()
-}
-
 #[cfg(feature = "cli")]
 pub async fn send_text_message(
     client: &Client,
