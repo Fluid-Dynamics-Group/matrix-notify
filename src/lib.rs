@@ -117,7 +117,7 @@ pub async fn send_attachment(
     upload_request.content_type = Some(mime.as_str());
 
     let uri = client.send_request(upload_request).await?.content_uri;
-    let description = description.unwrap_or("".to_string());
+    let description = description.unwrap_or_else(|| "".to_string());
 
     let msg_type : MessageType = if mime.starts_with("video") {
         println!("sending as video");
@@ -158,9 +158,7 @@ fn send_as_file(
     file.filename = Some(filename.clone());
     file.body = filename;
 
-    let msg_type = ruma_events::room::message::MessageType::File(file);
-
-    msg_type
+    ruma_events::room::message::MessageType::File(file)
 }
 
 // TODO: make this not render like that
@@ -186,9 +184,7 @@ fn send_as_video(
         ruma_events::room::message::VideoMessageEventContent::plain(description, uri.to_owned(), Some(info));
     file.body = filename;
 
-    let msg_type = ruma_events::room::message::MessageType::Video(file);
-
-    msg_type
+    ruma_events::room::message::MessageType::Video(file)
 }
 
 #[cfg(feature = "cli")]
@@ -216,9 +212,7 @@ fn send_as_image(
         ruma_events::room::message::ImageMessageEventContent::plain(description, uri.to_owned(), Some(info));
     file.body = filename;
 
-    let msg_type = ruma_events::room::message::MessageType::Image(file);
-
-    msg_type
+    ruma_events::room::message::MessageType::Image(file)
 }
 
 #[cfg(feature = "cli")]
@@ -227,7 +221,7 @@ async fn get_room_id(
     target_user: &UserId,
     self_id: &UserId,
 ) -> Result<OwnedRoomId, Error> {
-    let room_id = if let Some(id) = find_room(client, target_user.clone(), self_id).await? {
+    let room_id = if let Some(id) = find_room(client, target_user, self_id).await? {
         id
     } else {
         create_room(client, target_user).await?
@@ -300,7 +294,7 @@ async fn create_room(client: &Client, target_user: &UserId) -> Result<OwnedRoomI
     create_room_request.invite = &target;
     create_room_request.invite_3pid = &[];
     create_room_request.is_direct = true;
-    create_room_request.name = Some(&room_name);
+    create_room_request.name = Some(room_name);
     create_room_request.power_level_content_override = None;
     create_room_request.preset = Some(create_room::v3::RoomPreset::PrivateChat);
     create_room_request.room_alias_name = None;
