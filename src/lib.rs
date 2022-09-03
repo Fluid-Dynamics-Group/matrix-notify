@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::io::Read;
 #[cfg(feature = "cli")]
 use {
@@ -33,6 +32,13 @@ pub type HyperClient = ruma::client::http_client::HyperNativeTls;
 pub type Client = ruma::client::Client<HyperClient>;
 #[cfg(feature = "cli")]
 type RumaClientError = ruma::client::Error<hyper::Error, ruma::api::client::Error>;
+
+#[allow(dead_code)]
+fn check_send<T: Send>() {}
+
+fn _check_send() {
+    check_send::<Client>()
+}
 
 #[cfg(feature = "cli")]
 pub async fn send_text_message(
@@ -282,14 +288,8 @@ async fn find_room(
 }
 
 #[cfg(feature = "cli")]
-fn make_name<'a>(x: &'a str) -> Result<&'a ruma::RoomName, ruma::IdParseError> {
-    TryFrom::try_from(x)
-}
-
-#[cfg(feature = "cli")]
 async fn create_room(client: &Client, target_user: &UserId) -> Result<OwnedRoomId, Error> {
-    let name = "compute-notify";
-    let room_name = make_name(name).unwrap();
+    let room_name = "compute-notify";
 
     //we must now create a room and send messages to it
     let mut create_room_request = create_room::v3::Request::new();
@@ -354,4 +354,21 @@ impl ConfigInfo {
         let x = serde_json::from_str(&text)?;
         Ok(x)
     }
+}
+
+#[tokio::test]
+/// This test ensures that we can create a client from within a tokio spawned future,
+/// which ensures that all inner futures implement the Send trait. This is included
+/// because some versions of `ruma` do not have this trait bound on their boxed futures,
+/// and it may cause issues with upstream packages
+async fn tokio_spawn() {
+    tokio::spawn(async move {
+        let config_info = ConfigInfo {
+            matrix_username: "test_username".into(),
+            matrix_password: "test_username".into(),
+            homeserver_url: "https://matrix.org".into(),
+            matrix_id: "@test_username:matrix.org".parse().unwrap(),
+        };
+        client(&config_info).await.ok();
+    });
 }
