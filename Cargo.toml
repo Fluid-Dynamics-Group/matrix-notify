@@ -19,7 +19,7 @@ hyper = { version = "0.14.26", optional = true }
 hyper-tls = { version = "0.5.0", optional = true }
 
 # force higher openssl version for CVE reasons
-openssl = { version = "0.10.48", optional = true }
+openssl = { version = "0.10.55", optional = true }
 
 [dependencies.ruma-common]
 version = "0.9.3"
